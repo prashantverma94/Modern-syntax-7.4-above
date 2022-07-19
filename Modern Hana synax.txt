@@ -1,0 +1,418 @@
+*&---------------------------------------------------------------------*
+*& Report  YTEST11
+*& added by Prashant Verma new programming syntax
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ytest11.
+TABLES sflight.
+SELECT-OPTIONS : carrid FOR sflight-carrid.
+TRY .
+    DATA(lv_where) = cl_shdb_seltab=>combine_seltabs(
+                       it_named_seltabs = VALUE #(
+                       ( name = 'CARRID' dref = REF #( carrid[]  ) ) )
+                         iv_client_field  = 'MANDT' ) .
+  CATCH cx_shdb_exception. " exceptions of HANA DB objects
+ENDTRY.
+
+DATA : o_amdp TYPE REF TO  zcl_amdp_v1 .
+CREATE OBJECT o_amdp.
+o_amdp->run( ) .
+zcl_amdp_v1=>play( EXPORTING
+  lv_where = lv_where
+   ) .
+zcl_amdp_v1=>scroll( ).
+o_amdp->po_display( ).
+*--------------------------------------fetching from the database tables
+DATA(lv_value) = 'value'.
+WRITE :/ lv_value.
+
+SELECT * FROM sflight UP TO 5 ROWS INTO TABLE @DATA(lt_flight) .
+LOOP AT lt_flight INTO DATA(ls_flight).
+  WRITE : ls_flight-carrid.
+ENDLOOP.
+READ TABLE lt_flight ASSIGNING FIELD-SYMBOL(<lfs_flight>) INDEX 1.
+IF sy-subrc = 0.
+ENDIF.
+
+DATA(text) = 'ad.prashant@verma94@gmail.com'.
+FIND '@' IN text MATCH COUNT DATA(lv_count) .
+WRITE lv_count.
+
+SELECT FROM sflight
+  FIELDS carrid AS flightid,
+         fldate AS flightdate
+  INTO TABLE @DATA(lt_flight).
+
+IF sy-subrc = 0.
+
+ENDIF.
+
+DATA(lo_amdp) = NEW zcl_amdp_v1( ) .
+lo_amdp->scroll( ).
+lo_amdp->play( lv_where = data(lv_where) ).
+DATA(lw_matnr) = '00199'.
+lw_matnr = CONV matnr( lw_matnr ) .
+
+DATA: lv_char(255) TYPE c VALUE 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+*// encoding a string value
+DATA(lw_target) = cl_abap_codepage=>convert_to(
+                    source      =  CONV string( lv_char )
+                  ).
+WRITE:/ lw_target.
+
+DATA:text1    TYPE string VALUE 'Hello ',
+     text3    TYPE string VALUE 'Welcome to Day 2',
+     lw_space TYPE char1 VALUE ''.
+
+DATA(lw_concat) = | { text1 } | && | { 'Prashant' }| && |{ lw_space }| && |{ 'Verma' }| && |{ text3 } | .
+DATA(lw_concat1) = | { text1 } { 'Prashant' } { lw_space } { 'Verma' } { lw_space } { text3 } | .
+WRITE lw_concat.
+WRITE lw_concat1.
+
+SELECT * FROM sflight UP TO 20 ROWS INTO TABLE @DATA(lt_flight) .
+DATA(ls_flight) = lt_flight[ 1 ] .
+
+BREAK-POINT.
+WRITE ls_flight.
+
+TRY .
+    DATA(ls_flight1) = lt_flight[ carrid = 'AA' fldate = '20190611' currency = 'USD' ] .
+  CATCH cx_sy_itab_line_not_found.
+ENDTRY.
+
+IF line_exists( lt_flight[ carrid = 'AA' fldate = '20190611' currency = 'USD' ] ) .
+  DATA(ls_flight1) = lt_flight[ carrid = 'AA' fldate = '20190611' currency = 'USD' ] .
+ENDIF.
+
+"-------------------------- concept of structures 0-----------------------------------------------
+
+TYPES: BEGIN OF ty_new,
+         f1 TYPE c,
+       END OF ty_new,
+       tty_new TYPE TABLE OF ty_new WITH EMPTY KEY.
+
+DATA(lt_new) = VALUE tty_new( ( f1 = 'A' ) ( f1 = 'B') ( f1 = 'C') ).
+
+TYPES: BEGIN OF ty_example,
+         col1 TYPE i,
+         col2 TYPE c,
+         col3 TYPE datum,
+       END OF ty_example,
+       lt_example TYPE STANDARD TABLE OF ty_example WITH EMPTY KEY,
+
+       BEGIN OF ty_complex_example,
+         col1 TYPE i,
+         col2 TYPE ty_example,
+         col3 TYPE lt_example,
+       END OF ty_complex_example,
+       lt_complex_example TYPE STANDARD TABLE OF ty_complex_example WITH EMPTY KEY.
+*
+DATA(ls_struc1) = VALUE ty_example( col1 = 1 col2 = 'A' col3 = sy-datum ).
+
+DATA(lt_table) = VALUE lt_example( ( col1 = 1 col2 = 'A' col3 = sy-datum - 2 )
+                                   ( col1 = 2 col2 = 'B' col3 = sy-datum - 1 ) ).
+
+DATA(ls_complex_struc) = VALUE ty_complex_example( col1 = 1
+                                                   col2 = VALUE #(  col1 = 1  col2 =    'A'  col3 = sy-datum   )
+                                                   col3 = VALUE #( ( col1 = 1 col2 =  'A' col3 = sy-datum - 2 )
+                                                                  ( col1 = 2 col2 = 'B' col3 = sy-datum - 1 ) ) ) .
+
+DATA(lt_complex_table) = VALUE lt_complex_example( ( col1 = 1 col2 = ls_struc1 col3 = lt_table )
+                                                   ( col1 = 2 col2 = ls_struc1 col3 = lt_table ) ).
+
+DATA(lw_date) = lt_complex_table[ col1 = 1 ]-col3[ col2 = 'B' ]-col3.
+WRITE lw_date.
+
+*--------------------------------- concept of looping inside hte table
+*
+DATA: lv_status TYPE string.
+DATA(lv_flag) = ' '.
+lv_status = SWITCH #( lv_flag
+WHEN 'X' THEN 'Passed'
+ELSE 'Failed'
+).
+WRITE: lv_status.
+
+DATA(lv_language) = SWITCH string(
+sy-langu
+WHEN 'E' THEN 'English'
+WHEN 'D' THEN 'German'
+* ELSE THROW cx_sy_conversion_unknown_langu( )
+).
+WRITE:/ lv_language.
+
+DATA: lv_indicator LIKE scal-indicator.
+* lv_day(10) TYPE c.
+PARAMETERS: p_date TYPE sy-datum.
+
+CALL FUNCTION 'DATE_COMPUTE_DAY'
+  EXPORTING
+    date = p_date
+  IMPORTING
+    day  = lv_indicator.
+*
+DATA(lv_day) = SWITCH char10( lv_indicator
+                  WHEN 1 THEN 'Monday'
+                  WHEN 2 THEN 'Tuesday'
+                  WHEN 3 THEN 'Wednesday'
+                  WHEN 4 THEN 'Thursday'
+                  WHEN 5 THEN 'Friday'
+                  WHEN 6 THEN 'Saturday'
+                  WHEN 7 THEN 'Sunday'
+ELSE THROW cx_sy_illegal_handler( ) ).
+WRITE:/ lv_day.
+
+DATA:lv_vehicle(2) VALUE '02',
+     lv_type       VALUE 'T'.
+DATA(lv_text) = COND text_30(
+WHEN lv_vehicle ='01' AND lv_type = 'T' THEN 'Toyota'
+WHEN lv_vehicle ='02' AND lv_type = 'C' THEN 'Chevy'
+WHEN lv_vehicle ='03' AND lv_type = 'R' THEN 'Range Rover'
+ELSE 'Maruti Suzuki').
+WRITE:/ lv_text.
+
+DATA(lv_text1) = NEW char10( 'ABCD@$@#$' ).
+*
+DATA(lv_output) = NEW char10( ).
+
+
+DO 10 TIMES.
+  DATA(lv_offset) = NEW i( sy-index - 1 ).
+  DATA(lv_char_part) = NEW char1( lv_text1->*+lv_offset->*(1) ).
+  DATA(lv_new_part) =
+  SWITCH char1(
+* LET x = lv_char1 IN
+  LET x = '^' IN
+  lv_char_part->*
+  WHEN 'A' THEN 'Z'
+  WHEN 'B' THEN 'Y'
+  WHEN 'C' THEN 'X'
+  WHEN 'D' THEN 'W'
+  WHEN '@' THEN '$'
+  WHEN '#' THEN '%'
+  WHEN '' THEN x
+  ELSE 0
+  ).
+  lv_output->*+lv_offset->*(1) = lv_new_part.
+ENDDO.
+WRITE: lv_output->*.
+
+TYPES: BEGIN OF ty_ship,
+         tknum TYPE tknum, "Shipment Number
+         name  TYPE ernam, "Name of Person who Created the Object
+         city  TYPE ort01, "Starting city
+         route TYPE route, "Shipment route
+       END OF ty_ship.
+TYPES: ty_ships TYPE SORTED TABLE OF ty_ship WITH UNIQUE KEY tknum.
+TYPES: ty_citys TYPE STANDARD TABLE OF ort01 WITH EMPTY KEY.
+DATA: gt_ships TYPE ty_ships.
+
+gt_ships = VALUE #( ( tknum = '001' name = 'John' city = 'Mumbai' route = 'R001' )
+                    ( tknum = '002' name = 'Sid' city = 'Pune' route = 'R003' )
+                    ( tknum = '003' name = 'Ravi' city = 'Shimla' route = 'R001' )
+                    ( tknum = '004' name = 'Ajay' city = 'Chennai' route = 'R003' ) ).
+
+DATA(gt_citys) = VALUE ty_citys( FOR ls_ship IN gt_ships ( ls_ship-city )  ).
+DATA(gt_citys1) = VALUE ty_citys( FOR ls_ship IN gt_ships WHERE ( route = 'R001' )
+( ls_ship-city ) ).
+*
+*
+TYPES:
+  BEGIN OF ty_customer,
+    customer TYPE char10,
+    name     TYPE char30,
+    city     TYPE char30,
+    route    TYPE char10,
+  END OF ty_customer,
+  tt_customers TYPE SORTED TABLE OF ty_customer
+                 WITH UNIQUE KEY customer,
+
+  BEGIN OF ty_routes,
+    route TYPE char10,
+    name  TYPE char40,
+  END OF ty_routes,
+  tt_routes TYPE SORTED TABLE OF ty_routes
+              WITH UNIQUE KEY route,
+
+  BEGIN OF ty_route_names,
+    name       TYPE char30,
+    city       TYPE char30,
+    route_name TYPE char40,
+  END OF ty_route_names,
+  tt_names TYPE STANDARD TABLE OF ty_route_names WITH DEFAULT KEY.
+DATA : ls_n TYPE ty_route_names.
+DATA(lt_customers) =
+VALUE tt_customers(
+( customer = 'C0001' name = 'Test Customer 1' city = 'NY' route = 'R0001'
+)
+( customer = 'C0002' name = 'Customer 2' city = 'LA' route = 'R0003'
+)
+( customer = 'C0003' name = 'Good Customer 3' city = 'DFW' route = 'R0002' )
+( customer = 'C0004' name = 'Best Customer 4' city = 'CH' route = 'R0003'
+)
+).
+*
+DATA(lt_routes) =
+VALUE tt_routes(
+( route = 'R0001' name = 'Route 1' )
+( route = 'R0002' name = 'Route 2' )
+( route = 'R0003' name = 'Route 3' )
+).
+
+DATA(lt_route_names) =
+VALUE tt_names(
+FOR ls_cust1 IN lt_customers
+FOR ls_route1 IN lt_routes WHERE ( route = ls_cust1-route )
+( name = ls_cust1-name city = ls_cust1-city route_name = ls_route1-name )
+).
+*
+LOOP AT lt_customers INTO DATA(lw).
+  READ TABLE lt_routes INTO DATA(ls) WITH KEY route = lw-route.
+  IF sy-subrc = 0.
+    ls_n-city = lw-city .
+    ls_n-name = lw-name .
+    ls_n-route_name = ls-name .
+    APPEND ls_n TO lt_route_names.
+    CLEAR ls_n.
+  ENDIF.
+ENDLOOP.
+
+DATA(lt_final_tab) = VALUE tt_names(
+ FOR ls1 IN lt_customers
+ FOR ls2 IN lt_routes WHERE ( route = ls1-route )
+ ( name = ls2-name city = ls1-city )
+ ).
+
+TYPES: BEGIN OF ty_grades,
+         name  TYPE char20,
+         grade TYPE i,
+       END OF ty_grades,
+
+       tt_grades TYPE STANDARD TABLE OF ty_grades WITH EMPTY KEY.
+
+DATA(lt_grades) = VALUE tt_grades( FOR i = 1
+THEN i + 1 UNTIL
+ i > 50000
+  ( name = 'Student' && i grade = i ) ).
+
+DATA(lv_sum1) = REDUCE i( INIT y = 0
+ FOR wa_grade IN lt_grades
+ NEXT y = y + wa_grade-grade ).
+WRITE:/ lv_sum1.
+*
+TYPES : BEGIN OF typ_multi,
+          table  TYPE char20,
+          number TYPE i,
+        END OF typ_multi,
+
+        tt_multi TYPE STANDARD TABLE OF typ_multi WITH EMPTY KEY.
+*// multiplication of table 2
+DATA(lt_multi) = VALUE tt_multi(
+                FOR i = 1 THEN i + 1 UNTIL i > 10
+                ( table = 'multiplication of 2'  number = 2 * i  )
+).
+*sum of all the number upto 10 in multiplication table of 2
+DATA(lw_all) = REDUCE i( INIT y = 0
+FOR ls_multi IN lt_multi
+NEXT y = y + ls_multi-number
+) .
+
+WRITE lw_all .
+
+*concept of filter operator
+
+TYPES: BEGIN OF lty_value,
+         field1 TYPE i,
+         field2 TYPE i,
+       END OF lty_value,
+       tty_value TYPE SORTED TABLE OF lty_value WITH UNIQUE KEY field1 field2.
+
+DATA(lt_values) = VALUE tty_value( ( field1 = 1 field2 = 4 ) ( field1 = 3 field2 = 6 ) ( field1 = 5 field2 = 8 ) ).
+
+DATA(lt_value_filter) = VALUE tty_value( ( field1 = 3 field2 = 6 ) ).
+
+DATA(lt_filtered_values) = FILTER tty_value( lt_values EXCEPT IN
+lt_value_filter WHERE field1 = field1 AND field2 = field2 ).
+
+
+*concept of data movement within structure
+*** very good example
+SELECT FROM spfli
+FIELDS carrid, connid, distance
+ORDER BY PRIMARY KEY
+INTO TABLE @DATA(lt_spfli).
+
+DATA: lv_tot_distance TYPE spfli-distance,
+      x               TYPE spfli-distance.
+
+LOOP AT lt_spfli INTO DATA(wa_spfli)
+WHERE carrid = 'AZ' OR carrid = 'AA'  OR carrid = 'DL'  OR carrid = 'JL'
+GROUP BY ( carrid = wa_spfli-carrid ) ASCENDING ASSIGNING FIELD-SYMBOL(<group>).
+
+  WRITE:/ 'Carrier ID=>', 13 <group>-carrid COLOR 5.
+
+  lv_tot_distance = REDUCE #( INIT i TYPE spfli-distance FOR <lwa> IN GROUP <group>
+   NEXT i = i + <lwa>-distance ).
+  SKIP.
+  WRITE:/ 'Total Distance:', 20 lv_tot_distance COLOR 3.
+  SKIP.
+  CLEAR lv_tot_distance.
+ENDLOOP.
+
+
+"Corresponding Operator
+TYPES: BEGIN OF line1,
+         col1 TYPE i,
+         col2 TYPE i,
+       END OF line1.
+TYPES: BEGIN OF line2,
+         col1 TYPE i,
+         col2 TYPE i,
+         col3 TYPE i,
+       END OF line2.
+TYPES: BEGIN OF line3,
+         col1 TYPE i,
+         col2 TYPE i,
+       END OF line3.
+
+DATA(ls_line1) = VALUE line1( col1 = 1 col2 = 2 ).
+DATA(ls_line3) = CORRESPONDING line3( ls_line1 ).
+WRITE:/ 'Structure1 =>' COLOR 5, 15 ls_line1-col1, ls_line1-col2.
+WRITE:/ 'Structure3 =>' COLOR 5, 15 ls_line3-col1, ls_line3-col2.
+*-----
+DATA(ls_line2) = VALUE line2( col1 = 4 col2 = 5 col3 = 6 ).
+WRITE:/ 'Structure2 =>' COLOR 5, 15 ls_line2-col1, ls_line2-col2, ls_line2-col3.
+*---
+ls_line2 = CORRESPONDING #( ls_line1 ).
+WRITE:/ 'ls_line2 = CORRESPONDING #( ls_line1 )',40 ls_line2-col1, ls_line2-col2,
+ls_line2-col3.
+ls_line2 = VALUE line2( col1 = 4 col2 = 5 col3 = 6 ).
+*--
+ls_line2 = CORRESPONDING #( BASE ( ls_line2 ) ls_line1 ).
+WRITE:/ 'ls_line2 = CORRESPONDING #( BASE ( ls_line2 ) ls_line1 )',55 ls_line2-col1, ls_line2-col2, ls_line2-col3.
+**
+**"Mapping allows you to map fields with non-identically named components to qualify
+*for data transfer.
+ls_line2 = VALUE line2( col1 = 4 col2 = 5 col3 = 6 ).
+ls_line2 = CORRESPONDING #( ls_line1 MAPPING col3 = col2 ).
+WRITE:/ 'ls_line2 = CORRESPONDING #( ls_line1 MAPPING col3 = col2 )',60 ls_line2-col1, ls_line2-col2, ls_line2-col3.
+**--------------- upto here no an isssue
+ls_line2 = VALUE line2( col1 = 4 col2 = 5 col3 = 6 ).
+ls_line2 = CORRESPONDING #( ls_line1 MAPPING col3 = col2 EXCEPT col2 ).
+WRITE:/ 'ls_line2 = CORRESPONDING #( ls_line1 MAPPING col3 = col2 EXCEPT col2 )',65
+ls_line2-col1, ls_line2-col2, ls_line2-col3.
+**upto here no an isssue
+ls_line2 = VALUE line2( col1 = 4 col2 = 5 col3 = 6 ).
+ls_line2 = CORRESPONDING #( ls_line1 EXCEPT col2 ).
+WRITE:/ 'ls_line2 = CORRESPONDING #( ls_line1 EXCEPT col2 )',60 ls_line2-col1,
+ls_line2-col2, ls_line2-col3.
+
+
+
+
+
+
+
